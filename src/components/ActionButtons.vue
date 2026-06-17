@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+
 interface ActionButton {
   label: string
   icon: string
@@ -15,15 +17,21 @@ interface Props {
   canHunt: boolean
   canDrink: boolean
   disabled: boolean
+  isCompact?: boolean
+  collapsed?: boolean
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  isCompact: false,
+  collapsed: false,
+})
 
 const emit = defineEmits<{
   gatherWood: []
   gatherStone: []
   hunt: []
   drink: []
+  'toggle-collapse': []
 }>()
 
 const buttons: ActionButton[] = [
@@ -64,33 +72,75 @@ const buttons: ActionButton[] = [
     hoverClass: 'hover:bg-blue-800/60',
   },
 ]
+
+function isButtonDisabled(index: number): boolean {
+  if (props.disabled) return true
+  const canActions = [props.canGatherWood, props.canGatherStone, props.canHunt, props.canDrink]
+  return !canActions[index]
+}
+
+const availableCount = computed(() => {
+  const canActions = [props.canGatherWood, props.canGatherStone, props.canHunt, props.canDrink]
+  return canActions.filter(Boolean).length
+})
+
+const availableIcons = computed(() => {
+  const result: string[] = []
+  if (props.canGatherWood) result.push('🪵')
+  if (props.canGatherStone) result.push('🪨')
+  if (props.canHunt) result.push('🏹')
+  if (props.canDrink) result.push('💧')
+  return result.join(' ')
+})
 </script>
 
 <template>
-  <div class="bg-game-card rounded-2xl p-6 border border-game-border shadow-xl">
-    <h2 class="text-xl font-bold text-white mb-5 flex items-center gap-2">
-      <span>⚡</span>
-      <span>行动</span>
-    </h2>
-    <div class="grid grid-cols-2 gap-3">
-      <button
-        v-for="(btn, index) in buttons"
-        :key="btn.label"
-        @click="btn.action"
-        :disabled="disabled || (index === 0 ? !canGatherWood : index === 1 ? !canGatherStone : index === 2 ? !canHunt : !canDrink)"
-        :class="[
-          btn.bgClass,
-          'relative p-4 rounded-xl border border-game-border transition-all duration-200',
-          'flex flex-col items-center justify-center gap-2 text-center',
-          disabled || (index === 0 ? !canGatherWood : index === 1 ? !canGatherStone : index === 2 ? !canHunt : !canDrink)
-            ? 'opacity-40 cursor-not-allowed'
-            : [btn.hoverClass, 'hover:scale-[1.02] hover:shadow-lg cursor-pointer active:scale-[0.98]'],
-        ]"
-      >
-        <span class="text-3xl">{{ btn.icon }}</span>
-        <span class="text-white font-semibold text-sm">{{ btn.label }}</span>
-        <span class="text-gray-400 text-xs">{{ btn.description }}</span>
-      </button>
+  <div class="bg-game-card rounded-2xl border border-game-border shadow-xl overflow-hidden">
+    <button
+      @click="emit('toggle-collapse')"
+      class="w-full flex items-center justify-between text-left transition-colors hover:bg-game-card-hover"
+      :class="isCompact ? 'px-3 py-2' : 'px-6 py-4'"
+    >
+      <h2 :class="['font-bold text-white flex items-center gap-2', isCompact ? 'text-base' : 'text-xl']">
+        <span>⚡</span>
+        <span>行动</span>
+      </h2>
+      <div class="flex items-center gap-2">
+        <span v-if="collapsed" class="text-xs text-gray-400">
+          {{ availableIcons }} ({{ availableCount }}/4)
+        </span>
+        <span :class="['text-gray-400 transition-transform duration-200', collapsed ? '' : 'rotate-180']">▼</span>
+      </div>
+    </button>
+    <div
+      :class="[
+        'transition-all duration-300 ease-in-out overflow-hidden',
+        collapsed ? 'max-h-0' : isCompact ? 'max-h-80' : 'max-h-[400px]'
+      ]"
+    >
+      <div :class="['grid gap-3', isCompact ? 'px-3 pb-3 gap-2 grid-cols-2' : 'px-6 pb-6 grid-cols-2 gap-3']">
+        <button
+          v-for="(btn, index) in buttons"
+          :key="btn.label"
+          @click="btn.action"
+          :disabled="isButtonDisabled(index)"
+          :class="[
+            btn.bgClass,
+            'relative rounded-xl border border-game-border transition-all duration-200',
+            'flex flex-col items-center justify-center text-center',
+            isCompact
+              ? 'min-h-[60px] py-2 px-1 gap-1'
+              : 'min-h-[88px] p-4 gap-2',
+            isButtonDisabled(index)
+              ? 'opacity-40 cursor-not-allowed'
+              : [btn.hoverClass, 'hover:scale-[1.02] hover:shadow-lg cursor-pointer active:scale-[0.98]'],
+          ]"
+        >
+          <span :class="isCompact ? 'text-xl' : 'text-3xl'">{{ btn.icon }}</span>
+          <span :class="['text-white font-semibold', isCompact ? 'text-xs' : 'text-sm']">{{ btn.label }}</span>
+          <span v-if="!isCompact" class="text-gray-400 text-xs">{{ btn.description }}</span>
+        </button>
+      </div>
     </div>
   </div>
 </template>
